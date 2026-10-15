@@ -85,14 +85,16 @@ button:focus-visible {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1.4fr 0.8fr 1fr;
-  grid-template-rows: 280px 220px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: 170px repeat(2, minmax(190px, auto));
   grid-template-areas:
-    "projects projects games"
-    "interests resources games";
+    "intro intro"
+    "projects games"
+    "interests resources";
   gap: 12px;
   max-width: 1400px;
   margin: 0 auto;
+  align-items: stretch;
 }
 
 .window {
@@ -115,7 +117,8 @@ button:focus-visible {
           border-color 400ms ease;
 }
 
-.window:hover {
+.window:hover,
+.section-nav-window:hover {
   background: #0c0c0c;
   border-color: #292929;
 }
@@ -150,71 +153,26 @@ button:focus-visible {
   color: #666;
 }
 
-.window h1,
 .window h2 {
   margin: 0;
   font-weight: 400;
   letter-spacing: -0.04em;
-}
-
-.window h1 {
-  font-size: clamp(40px, 5vw, 72px);
-}
-
-/* Controls the Home Title Section Text */
-.window h2 {
-  font-size: clamp(28px, 3vw, 42px);
+  font-size: clamp(22px, 2.4vw, 32px);
 }
 
 /* Controls the Home flavor text */
 .window p {
-  max-width: 420px;
+  max-width: 460px;
   margin: 12px 0 0;
   font-size: 13px;
   line-height: 1.6;
   color: #777;
 }
 
-/* Expanded section layout */
-
-.dashboard-grid-expanded {
-  grid-template-columns: 190px minmax(0, 1fr);
-  grid-template-rows: repeat(4, minmax(88px, auto));
-  grid-template-areas:
-    "projects content"
-    "games content"
-    "interests content"
-    "resources content";
-  align-items: stretch;
-}
-
-.dashboard-grid-expanded .window {
-  min-height: 160px;
-  padding: 14px;
-}
-
-.dashboard-grid-expanded .window h2 {
-  font-size: 20px;
-  letter-spacing: -0.03em;
-}
-
-.dashboard-grid-expanded .window .window-label {
-  margin-bottom: 6px;
-  font-size: 9px;
-}
-
-.dashboard-grid-expanded .window p {
-  display: none;
-}
-
-.dashboard-grid-expanded .window-active {
-  border-color: #444;
-  background: #101010;
-}
-
-.expanded-content {
-  grid-area: content;
-  grid-row: 1 / -1;
+.section-page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
   min-width: 0;
   min-height: 400px;
   padding: clamp(24px, 5vw, 64px);
@@ -222,14 +180,14 @@ button:focus-visible {
   background: #080808;
 }
 
-.expanded-content h1 {
+.section-page h1 {
   margin: 24px 0 12px;
   font-size: clamp(42px, 6vw, 84px);
   font-weight: 400;
   letter-spacing: -0.05em;
 }
 
-.expanded-content p {
+.section-page p {
   max-width: 600px;
   color: #777;
   font-size: 14px;
@@ -268,38 +226,7 @@ button:focus-visible {
     padding: 16px;
   }
 
-  .dashboard-grid {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 260px 180px 180px;
-    grid-template-areas:
-      "projects projects"
-      "games interests"
-      "resources resources";
-  }
-
-  .dashboard-grid-expanded {
-  grid-template-columns: 190px minmax(0, 1fr);
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  grid-template-areas:
-    "projects content"
-    "games content"
-    "interests content"
-    "resources content";
-  align-items: stretch;
-  height: calc(100vh - 100px);
-  min-height: 600px;
-}
-
-  .dashboard-grid-expanded .window {
-    min-height: 76px;
-    padding: 10px;
-  }
-
-  .dashboard-grid-expanded .window h2 {
-    font-size: 17px;
-  }
-
-  .expanded-content {
+  .section-page {
     padding: 24px;
   }
 }
@@ -326,34 +253,6 @@ button:focus-visible {
     padding: 20px;
   }
 
-  .window-projects {
-    min-height: 240px;
-  }
-
-  .dashboard-grid-expanded {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .dashboard-grid-expanded .window {
-    min-height: 64px;
-    padding: 12px;
-  }
-
-  .dashboard-grid-expanded .window h2 {
-    font-size: 18px;
-  }
-
-  .expanded-content {
-  grid-area: content;
-  grid-row: 1 / -1;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  padding: clamp(40px, 5vw, 72px);
-  border: 1px solid #191919;
-  background: #080808;
-  }
 }
 
 /* Respect accessibility preferences */
@@ -368,7 +267,6 @@ button:focus-visible {
     animation-iteration-count: 1 !important;
   }
 }
-
 
 /* Project card styling */
 .projects-list {
@@ -429,19 +327,21 @@ button:focus-visible {
   font-size: 11px;
 }
 
-.project-link {
+.project-link,
+.game-card-link {
   margin-top: auto;
-  padding-top: 24px;
   color: #eee;
   font-size: 13px;
   text-decoration: none;
 }
 
-.project-link:hover {
+.project-link:hover,
+.game-card-link:hover {
   color: #999;
 }
 
-.project-link span {
+.project-link span,
+.game-card-link span {
   margin-left: 5px;
 }
 
@@ -504,20 +404,12 @@ button:focus-visible {
   line-height: 1.6;
 }
 
+.project-link {
+  padding-top: 24px;
+}
+
 .game-card-link {
-  margin-top: auto;
   padding-top: 22px;
-  color: #eee;
-  font-size: 13px;
-  text-decoration: none;
-}
-
-.game-card-link:hover {
-  color: #999;
-}
-
-.game-card-link span {
-  margin-left: 5px;
 }
 
 /* Picking games styling */
@@ -562,7 +454,6 @@ button:focus-visible {
   border-bottom: 2px solid transparent;
   background: transparent;
   color: #888;
-  font: inherit;
   font-size: 13px;
   cursor: pointer;
 }
@@ -573,14 +464,12 @@ button:focus-visible {
 }
 
 .game-picker-search {
-  box-sizing: border-box;
   width: 100%;
   padding: 12px 14px;
   border: 1px solid #292929;
   outline: none;
   background: #050505;
   color: #eee;
-  font: inherit;
   font-size: 13px;
 }
 
@@ -640,7 +529,6 @@ button:focus-visible {
   }
 }
 
-
 .games-widgets {
   display: flex;
   flex-direction: column;
@@ -648,7 +536,8 @@ button:focus-visible {
   margin-top: 32px;
 }
 
-.game-collection {
+.game-collection,
+.game-stats-widget {
   min-width: 0;
   padding: 22px;
   border: 1px solid #242424;
@@ -683,7 +572,6 @@ button:focus-visible {
   border: 1px solid #303030;
   background: #111;
   color: #ddd;
-  font: inherit;
   font-size: 12px;
   cursor: pointer;
 }
@@ -735,13 +623,6 @@ button:focus-visible {
   font-size: 13px;
 }
 
-.game-stats-widget {
-  min-width: 0;
-  padding: 22px;
-  border: 1px solid #242424;
-  background: #090909;
-}
-
 @media (max-width: 600px) {
   .game-collection,
   .game-stats-widget {
@@ -751,5 +632,151 @@ button:focus-visible {
   .game-cover-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+  }
+}
+
+/* Persistent, equal-sized section navigation */
+.section-navigation {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto 18px;
+}
+
+.section-nav-window {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  min-height: 100px;
+  padding: 16px 20px;
+  border: 1px solid #191919;
+  border-radius: 2px;
+  color: #f2f2f2;
+  background: #080808;
+  text-align: left;
+  cursor: pointer;
+  transition: background 250ms ease, border-color 250ms ease, color 250ms ease;
+}
+
+.section-nav-window .window-label {
+  margin: 0;
+  font-size: 9px;
+}
+
+.section-nav-window h2 {
+  margin: 0;
+  font-size: clamp(16px, 1.6vw, 22px);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+}
+
+.section-nav-window-active {
+  border-color: #444;
+  background: #101010;
+}
+
+.section-nav-window-active .window-label {
+  color: #aaa;
+}
+
+@media (max-width: 800px) {
+  .section-navigation {
+    gap: 8px;
+  }
+
+  .section-nav-window {
+    min-height: 88px;
+    padding: 14px;
+  }
+}
+
+@media (max-width: 500px) {
+  .section-navigation {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .section-nav-window {
+    min-height: 82px;
+    padding: 12px;
+  }
+
+  .section-nav-window h2 {
+    font-size: 18px;
+  }
+
+  .section-page {
+    min-height: 0;
+    padding: 24px;
+  }
+
+  .section-page h1 {
+    font-size: clamp(42px, 12vw, 64px);
+  }
+}
+
+/* Homepage introduction card */
+.home-intro {
+  grid-area: intro;
+  cursor: default;
+}
+
+.home-card-link {
+  display: inline-block;
+  margin-top: 18px;
+  color: #aaa;
+  font-size: 12px;
+  transition: color 200ms ease;
+}
+
+.home-card-link > span {
+  display: inline-block;
+  margin-left: 5px;
+  transition: transform 200ms ease;
+}
+
+.window:hover .home-card-link {
+  color: #fff;
+}
+
+.window:hover .home-card-link > span {
+  transform: translate(3px, -3px);
+}
+
+.dashboard-grid > .home-intro {
+  min-height: 0;
+}
+
+.dashboard-grid > .window-projects,
+.dashboard-grid > .window-games,
+.dashboard-grid > .window-interests,
+.dashboard-grid > .window-resources {
+  min-height: 190px;
+  height: auto;
+}
+
+@media (max-width: 800px) {
+  .dashboard-grid {
+    grid-template-rows: 160px repeat(2, minmax(190px, auto));
+  }
+}
+
+@media (max-width: 500px) {
+
+  .dashboard-grid > .home-intro {
+    min-height: 190px;
+  }
+
+  .dashboard-grid > .window-projects,
+  .dashboard-grid > .window-games,
+  .dashboard-grid > .window-interests,
+  .dashboard-grid > .window-resources {
+    min-height: 170px;
   }
 }

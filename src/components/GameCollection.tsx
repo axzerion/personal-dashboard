@@ -1,6 +1,5 @@
 
 import { useEffect, useState } from "react"
-import type { SteamGame } from "../data/steam"
 import type { SteamLibraryGame } from "../data/steamLibrary"
 
 interface GameCollectionProps {
