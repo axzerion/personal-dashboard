@@ -86,13 +86,13 @@ button:focus-visible {
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: 170px repeat(2, minmax(190px, auto));
+  grid-template-rows: 180px repeat(2, minmax(100px, auto));
   grid-template-areas:
     "intro intro"
     "projects games"
     "interests resources";
   gap: 12px;
-  max-width: 1400px;
+  max-width: 1500px;
   margin: 0 auto;
   align-items: stretch;
 }
@@ -162,7 +162,7 @@ button:focus-visible {
 
 /* Controls the Home flavor text */
 .window p {
-  max-width: 460px;
+  max-width: none;
   margin: 12px 0 0;
   font-size: 13px;
   line-height: 1.6;

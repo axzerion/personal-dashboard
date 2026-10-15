@@ -164,11 +164,10 @@ function Dashboard() {
                     >
                         <span className="window-number">PERSONAL SPACE</span>
                         <div>
-                            <span className="window-label">WELCOME</span>
-                            <h2>A little about me.</h2>
+                            <span className="window-label"></span>
+                            <h2>Welcome.</h2>
                             <p>
-                                A personal corner for my software projects, games,
-                                interests, and useful finds.
+                                This is a personal corner for my software projects, games, and things I find useful or interesting.
                             </p>
                         </div>
                     </motion.div>
@@ -224,16 +223,14 @@ function Dashboard() {
                                 <>
                                     <GameCollection
                                         title="Games I Like"
-                                        description="Games worth playing."
                                         collection="liked"
                                         onEdit={() => setEditingCollection(true)}
-                                    />
+                                        description={""}                                    />
                                     <GameCollection
-                                        title="Favorites"
-                                        description="My personal favorites."
+                                        title="Want to Play"
                                         collection="favorites"
                                         onEdit={() => setEditingCollection(true)}
-                                    />
+                                        description={""}                                    />
                                     <div className="game-stats-widget">
                                         <h2>Recently Played</h2>
                                         <div className="games-list">

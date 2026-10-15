@@ -101,7 +101,7 @@ export default function GameLibraryPicker() {
         <section className="game-library-picker">
             <div className="game-picker-header">
                 <div>
-                    <span className="window-label">YOUR COLLECTION</span>
+                    <span className="window-label">MY COLLECTION</span>
                     <h2>Choose your games</h2>
                 </div>
                 <span className="game-picker-count">
@@ -121,7 +121,7 @@ export default function GameLibraryPicker() {
                     className={collection === "favorites" ? "active" : ""}
                     onClick={() => setCollection("favorites")}
                 >
-                    Favorites
+                    Want to Play
                 </button>
             </div>
 

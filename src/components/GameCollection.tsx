@@ -58,7 +58,7 @@ export default function GameCollection({
         <section className="game-collection">
             <div className="game-collection-header">
                 <div>
-                    <span className="window-label">YOUR COLLECTION</span>
+                    <span className="window-label">MY COLLECTION</span>
                     <h2>{title}</h2>
                     <p>{description}</p>
                 </div>
