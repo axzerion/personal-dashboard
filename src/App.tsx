@@ -16,7 +16,12 @@ import {
 import type {
     SteamGame,
 } from "./data/steam"
+
 import GameCard from "./components/GameCard"
+
+import GameLibraryPicker from "./components/GameLibraryPicker"
+
+import GameCollection from "./components/GameCollection"
 
 const sections = [
     {
@@ -45,6 +50,8 @@ function Dashboard() {
     const [games, setGames] = useState<SteamGame[]>([])
     const [gamesLoading, setGamesLoading] = useState(false)
     const [gamesError, setGamesError] = useState<string | null>(null)
+
+    const [editingCollection, setEditingCollection] = useState(false)
 
     useEffect(() => {
         if (activePath !== "/projects") return
@@ -193,21 +200,47 @@ function Dashboard() {
 
 
                             {activePath === "/games" && (
-                                <div className="games-list">
-                                    {gamesLoading && <p>Loading games from Steam...</p>}
+                                <div className="games-widgets">
+                                    {!editingCollection ? (
+                                        <>
+                                            <GameCollection
+                                                title="Games I Like"
+                                                description="Games worth playing."
+                                                collection="liked"
+                                                onEdit={() => setEditingCollection(true)}
+                                            />
 
-                                    {gamesError && <p role="alert">{gamesError}</p>}
+                                            <GameCollection
+                                                title="Favorites"
+                                                description="My personal favorites."
+                                                collection="favorites"
+                                                onEdit={() => setEditingCollection(true)}
+                                            />
 
-                                    {!gamesLoading && !gamesError && games.length === 0 && (
-                                        <p>No recently played games found.</p>
+                                            <div className="game-stats-widget">
+                                                <h2>Recently Played</h2>
+                                                <div className="games-list">
+                                                    {gamesLoading && <p>Loading games from Steam...</p>}
+                                                    {gamesError && <p role="alert">{gamesError}</p>}
+                                                    {!gamesLoading && !gamesError && games.map((game) => (
+                                                        <GameCard key={game.appid} game={game} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                className="game-collection-edit"
+                                                onClick={() => setEditingCollection(false)}
+                                            >
+                                                ← Back to collections
+                                            </button>
+                                            <GameLibraryPicker />
+                                        </>
                                     )}
-
-                                    {!gamesLoading && !gamesError && games.map((game) => (
-                                        <GameCard key={game.appid} game={game} />
-                                    ))}
                                 </div>
                             )}
-
 
 
                             <button className="back-home" onClick={() => navigate("/")}>
