@@ -1,5 +1,8 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node"
+import dotenv from "dotenv"
+
+dotenv.config({ path: ".env.local" })
 
 const STEAM_ID = "76561198047552050"
 
@@ -18,6 +21,11 @@ export default async function handler(
             error: "Steam API key is not configured",
         })
     }
+
+    res.setHeader(
+        "Cache-Control",
+        "public, s-maxage=300, stale-while-revalidate=600"
+    )
 
     const type = req.query.type === "library" ? "library" : "recent"
 

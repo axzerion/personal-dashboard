@@ -1,52 +1,52 @@
+import {useEffect, useMemo, useRef, useState} from "react"
+import {getSteamLibrary} from "../data/steamLibrary"
+import type {SteamLibraryGame} from "../data/steamLibrary"
+import {
+    emptyGameCollections,
+    getGameCollections,
+    saveGameCollections,
+} from "../data/gameCollections"
+import type {GameCollections} from "../data/gameCollections"
 
-import { useEffect, useMemo, useState } from "react"
-import { getSteamLibrary } from "../data/steamLibrary"
-import type { SteamLibraryGame } from "../data/steamLibrary"
-
-type Collection = "liked" | "favorites"
-
-const STORAGE_KEY = "personal-dashboard-game-collections"
-
-interface SavedCollections {
-    liked: number[]
-    favorites: number[]
-}
-
-const emptyCollections: SavedCollections = {
-    liked: [],
-    favorites: [],
-}
-
-function loadCollections(): SavedCollections {
-    try {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        return saved ? { ...emptyCollections, ...JSON.parse(saved) } : emptyCollections
-    } catch {
-        return emptyCollections
-    }
-}
+type Collection = "liked" | "wantToPlay"
 
 export default function GameLibraryPicker() {
     const [library, setLibrary] = useState<SteamLibraryGame[]>([])
     const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState("")
     const [collection, setCollection] = useState<Collection>("liked")
-    const [collections, setCollections] = useState<SavedCollections>(loadCollections)
+    const [collections, setCollections] =
+        useState<GameCollections>(emptyGameCollections)
+    const [saveStatus, setSaveStatus] = useState("All changes saved")
+
+    const pendingRef = useRef<GameCollections | null>(null)
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const savingRef = useRef(false)
+
+    const selected = collections[collection]
 
     useEffect(() => {
         let cancelled = false
 
-        async function loadLibrary() {
+        async function loadData() {
             try {
-                const data = await getSteamLibrary()
-                if (!cancelled) setLibrary(data.games ?? [])
-            } catch (error) {
+                const [libraryData, savedCollections] = await Promise.all([
+                    getSteamLibrary(),
+                    getGameCollections(),
+                ])
+
+                if (!cancelled) {
+                    setLibrary(libraryData.games ?? [])
+                    setCollections(savedCollections)
+                }
+            } catch (err) {
                 if (!cancelled) {
                     setError(
-                        error instanceof Error
-                            ? error.message
-                            : "Couldn't load your Steam library."
+                        err instanceof Error
+                            ? err.message
+                            : "Couldn't load the game data."
                     )
                 }
             } finally {
@@ -54,117 +54,223 @@ export default function GameLibraryPicker() {
             }
         }
 
-        void loadLibrary()
+        void loadData()
+
         return () => {
             cancelled = true
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current)
+            }
         }
     }, [])
 
-    useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(collections))
-    }, [collections])
+    const filteredGames = useMemo(
+        () =>
+            [...library]
+                .filter((game) =>
+                    game.name.toLowerCase().includes(search.toLowerCase())
+                )
+                .sort((a, b) => {
+                    const aSelected = selected.includes(a.appid)
+                    const bSelected = selected.includes(b.appid)
 
-    const selected = collections[collection]
+                    if (aSelected !== bSelected) {
+                        return aSelected ? -1 : 1
+                    }
 
-    const filteredGames = useMemo(() => {
-        return [...library]
-            .filter((game) =>
-                game.name.toLowerCase().includes(search.toLowerCase())
+                    return a.name.localeCompare(b.name)
+                }),
+        [library, search, selected]
+    )
+
+
+    async function flushSave() {
+        if (savingRef.current || !pendingRef.current) return
+
+        const snapshot = pendingRef.current
+        pendingRef.current = null
+        savingRef.current = true
+        setSaving(true)
+
+        try {
+            await saveGameCollections(snapshot)
+            setSaveStatus("All changes saved")
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Couldn't save the game collection."
             )
-            .sort((a, b) => a.name.localeCompare(b.name))
-    }, [library, search])
+            setSaveStatus("Save failed")
+        } finally {
+            savingRef.current = false
+            setSaving(false)
+
+            if (pendingRef.current) {
+                void flushSave()
+            }
+        }
+    }
+
+    function queueSave(updated: GameCollections) {
+        pendingRef.current = updated
+        setSaveStatus("Unsaved changes")
+
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current)
+        }
+
+        saveTimerRef.current = setTimeout(() => {
+            void flushSave()
+        }, 500)
+    }
 
     function toggleGame(appid: number) {
-        setCollections((current) => {
-            const currentIds = current[collection]
-            const alreadySelected = currentIds.includes(appid)
+        const currentIds = collections[collection]
+        const alreadySelected = currentIds.includes(appid)
 
-            if (alreadySelected) {
-                return {
-                    ...current,
-                    [collection]: currentIds.filter((id) => id !== appid),
-                }
-            }
+        if (
+            !alreadySelected &&
+            collection === "liked" &&
+            currentIds.length >= 20
+        ) {
+            setError("Games I Like is limited to 20 games.")
+            return
+        }
 
-            if (collection === "liked" && currentIds.length >= 20) {
-                return current
-            }
+        if (
+            !alreadySelected &&
+            collection === "wantToPlay" &&
+            currentIds.length >= 100
+        ) {
+            setError("Want to Play is limited to 100 games.")
+            return
+        }
 
-            return {
-                ...current,
-                [collection]: [...currentIds, appid],
-            }
-        })
+        const updatedCollections: GameCollections = {
+            ...collections,
+            [collection]: alreadySelected
+                ? currentIds.filter((id) => id !== appid)
+                : [...currentIds, appid],
+        }
+
+        setCollections(updatedCollections)
+        setError(null)
+        queueSave(updatedCollections)
+    }
+
+    if (loading) {
+        return (
+            <section className="game-library-picker">
+                <p>Loading your game library...</p>
+            </section>
+        )
     }
 
     return (
         <section className="game-library-picker">
-            <div className="game-picker-header">
+            <header className="picker-header">
                 <div>
-                    <span className="window-label">MY COLLECTION</span>
-                    <h2>Choose your games</h2>
+                    <span className="window-label">LIBRARY MANAGEMENT</span>
+                    <h2>Manage game collections</h2>
+                    <p>
+                        Choose which games appear on your public profile.
+                    </p>
                 </div>
-                <span className="game-picker-count">
-                    {selected.length}
-                    {collection === "liked" ? " / 20" : " selected"}
-                </span>
-            </div>
 
-            <div className="game-picker-tabs">
+                <span
+                    className={`picker-save-status ${saving ? "saving" : ""}`}
+                    role="status"
+                >
+                    <span className="picker-status-dot"/>
+                    {saving ? "Saving..." : saveStatus}
+                </span>
+            </header>
+
+            <div className="picker-collection-summary">
                 <button
-                    className={collection === "liked" ? "active" : ""}
+                    type="button"
+                    className={`picker-collection-card ${collection === "liked" ? "active" : ""}`}
                     onClick={() => setCollection("liked")}
                 >
-                    Games I Like
+                    <span className="picker-card-label">GAMES I LIKE</span>
+                    <strong>{collections.liked.length}<span> / 20</span></strong>
+                    <span className="picker-card-description">
+                        Your favourite games
+                    </span>
                 </button>
+
                 <button
-                    className={collection === "favorites" ? "active" : ""}
-                    onClick={() => setCollection("favorites")}
+                    type="button"
+                    className={`picker-collection-card ${collection === "wantToPlay" ? "active" : ""}`}
+                    onClick={() => setCollection("wantToPlay")}
                 >
-                    Want to Play
+                    <span className="picker-card-label">WANT TO PLAY</span>
+                    <strong>{collections.wantToPlay.length}<span> / 100</span></strong>
+                    <span className="picker-card-description">
+                        Games on your backlog
+                    </span>
                 </button>
             </div>
 
-            <input
-                className="game-picker-search"
-                type="search"
-                placeholder="Search your Steam library..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-            />
-
-            {loading && <p>Loading your Steam library...</p>}
-            {error && <p role="alert">{error}</p>}
-
-            {!loading && !error && (
-                <div className="game-picker-list">
-                    {filteredGames.map((game) => {
-                        const isSelected = selected.includes(game.appid)
-                        const limitReached =
-                            collection === "liked" &&
-                            selected.length >= 20 &&
-                            !isSelected
-
-                        return (
-                            <label
-                                className={`game-picker-item ${isSelected ? "selected" : ""}`}
-                                key={game.appid}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    disabled={limitReached}
-                                    onChange={() => toggleGame(game.appid)}
-                                />
-                                <span>{game.name}</span>
-                            </label>
-                        )
-                    })}
-
-                    {filteredGames.length === 0 && (
-                        <p>No games match your search.</p>
-                    )}
+            <div className="picker-library-header">
+                <div>
+                    <h3>
+                        {collection === "liked" ? "Games I Like" : "Want to Play"}
+                    </h3>
+                    <p>
+                        {selected.length} selected · {library.length} games in library
+                    </p>
                 </div>
+
+                <input
+                    className="picker-search"
+                    type="search"
+                    placeholder="Search games..."
+                    aria-label="Search Steam library"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                />
+            </div>
+
+            {error && (
+                <p className="picker-error" role="alert">
+                    {error}
+                </p>
+            )}
+
+            <div className="game-library-list">
+                {filteredGames.map((game) => {
+                    const isSelected = selected.includes(game.appid)
+
+                    return (
+                        <button
+                            key={game.appid}
+                            type="button"
+                            className={`game-library-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => toggleGame(game.appid)}
+                        >
+                            <img
+                                className="picker-game-cover"
+                                src={`https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/header.jpg`}
+                                alt=""
+                                loading="lazy"
+                            />
+
+                            <span className="picker-game-name">{game.name}</span>
+
+                            <span className="picker-game-action">
+                                {isSelected ? "Selected ✓" : "+ Add"}
+                            </span>
+                        </button>
+                    )
+                })}
+            </div>
+
+            {filteredGames.length === 0 && (
+                <p className="picker-empty">
+                    No games match your search.
+                </p>
             )}
         </section>
     )

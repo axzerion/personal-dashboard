@@ -1,54 +1,64 @@
-
 import { useEffect, useState } from "react"
 import type { SteamLibraryGame } from "../data/steamLibrary"
+import { getGameCollections } from "../data/gameCollections"
 
 interface GameCollectionProps {
     title: string
     description: string
-    collection: "liked" | "favorites"
-    onEdit: () => void
+    collection: "liked" | "wantToPlay"
 }
-
-const STORAGE_KEY = "personal-dashboard-game-collections"
 
 export default function GameCollection({
                                            title,
                                            description,
                                            collection,
-                                           onEdit,
                                        }: GameCollectionProps) {
     const [games, setGames] = useState<SteamLibraryGame[]>([])
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         let cancelled = false
 
         async function loadGames() {
+            setLoading(true)
+
             try {
-                const response = await fetch("/api/steam?type=library")
-                if (!response.ok) return
+                const [collections, response] = await Promise.all([
+                    getGameCollections(),
+                    fetch("/api/steam?type=library"),
+                ])
+
+                if (!response.ok) {
+                    throw new Error("Couldn't load Steam library.")
+                }
 
                 const data = await response.json()
                 const library: SteamLibraryGame[] = data.games ?? []
+                const selectedIds = collections[collection]
 
-                const saved = localStorage.getItem(STORAGE_KEY)
-                const collections = saved
-                    ? JSON.parse(saved)
-                    : { liked: [], favorites: [] }
-
-                const selectedIds: number[] = collections[collection] ?? []
                 const selectedGames = selectedIds
-                    .map((id) => library.find((game) => game.appid === id))
+                    .map((id) =>
+                        library.find((game) => game.appid === id)
+                    )
                     .filter(
-                        (game): game is SteamLibraryGame => game !== undefined
+                        (game): game is SteamLibraryGame =>
+                            game !== undefined
                     )
 
-                if (!cancelled) setGames(selectedGames)
+                if (!cancelled) {
+                    setGames(selectedGames)
+                }
             } catch (error) {
                 console.error("Couldn't load game collection:", error)
+            } finally {
+                if (!cancelled) {
+                    setLoading(false)
+                }
             }
         }
 
         void loadGames()
+
         return () => {
             cancelled = true
         }
@@ -62,13 +72,13 @@ export default function GameCollection({
                     <h2>{title}</h2>
                     <p>{description}</p>
                 </div>
-
-                <button className="game-collection-edit" onClick={onEdit}>
-                    Edit <span>↗</span>
-                </button>
             </div>
 
-            {games.length > 0 ? (
+            {loading ? (
+                <p className="game-collection-empty">
+                    Loading collection...
+                </p>
+            ) : games.length > 0 ? (
                 <div className="game-cover-grid">
                     {games.map((game) => (
                         <a

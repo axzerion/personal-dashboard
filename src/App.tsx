@@ -15,6 +15,7 @@ import type {SteamGame} from "./data/steam"
 import GameCard from "./components/GameCard"
 import GameLibraryPicker from "./components/GameLibraryPicker"
 import GameCollection from "./components/GameCollection"
+import AdminPage from "./components/AdminPage"
 
 const sections = [
     {
@@ -128,9 +129,43 @@ function Dashboard() {
                 <button className="brand" onClick={() => navigate("/")}>
                     PERSONAL SPACE
                 </button>
-                <div className="status">
-                    <span className="status-dot" />
-                    {isHome ? "HOME" : activeSection?.label.toUpperCase()}
+
+                <div className="topbar-right">
+                    <nav className="topbar-navigation" aria-label="Main navigation">
+                        <button onClick={() => navigate("/")}>Home</button>
+                        {sections.map((section) => (
+                            <button
+                                key={section.path}
+                                onClick={() => navigate(section.path)}
+                            >
+                                {section.label}
+                            </button>
+                        ))}
+                        <button onClick={() => navigate("/admin")}>Admin</button>
+
+                        <span className="topbar-divider" aria-hidden="true" />
+
+                        {/* Replace these URLs with your own account links. */}
+                        <a
+                            href="https://github.com/axzerion"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            GitHub ↗
+                        </a>
+                        <a
+                            href="https://steamcommunity.com/id/hahayesnt/"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            Steam ↗
+                        </a>
+                    </nav>
+
+                    <div className="status">
+                        <span className="status-dot" />
+                        {isHome ? "HOME" : activeSection?.label.toUpperCase() ?? "ADMIN"}
+                    </div>
                 </div>
             </header>
 
@@ -224,12 +259,10 @@ function Dashboard() {
                                     <GameCollection
                                         title="Games I Like"
                                         collection="liked"
-                                        onEdit={() => setEditingCollection(true)}
                                         description={""}                                    />
                                     <GameCollection
                                         title="Want to Play"
-                                        collection="favorites"
-                                        onEdit={() => setEditingCollection(true)}
+                                        collection="wantToPlay"
                                         description={""}                                    />
                                     <div className="game-stats-widget">
                                         <h2>Recently Played</h2>
@@ -269,6 +302,7 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/admin" element={<AdminPage />} />
                 <Route path="/" element={<Dashboard />} />
                 {sections.map((section) => (
                     <Route key={section.path} path={section.path} element={<Dashboard />} />

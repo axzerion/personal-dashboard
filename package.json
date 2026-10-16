@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.2",
     "@vercel/node": "^24.0.1",
+    "dotenv": "^18.0.8",
     "framer-motion": "^14.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
