@@ -1,4 +1,3 @@
-
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { get, put } from "@vercel/blob"
 import { createHmac, timingSafeEqual } from "node:crypto"
@@ -10,16 +9,26 @@ dotenv.config({ path: ".env.local" })
 const COOKIE_NAME = "dashboard_admin_session"
 const SESSION_DURATION = 8 * 60 * 60
 const BLOB_PATH = "game-collections.json"
+const STEAM_ID = "76561198047552050"
+const LIBRARY_TTL_MS = 60 * 60 * 1000
 
 interface GameCollections {
     liked: number[]
     wantToPlay: number[]
 }
 
+interface OwnedGame {
+    appid: number
+    name: string
+}
+
 const emptyCollections: GameCollections = {
     liked: [],
     wantToPlay: [],
 }
+
+// Kept in memory while this serverless instance stays warm.
+let libraryCache: { games: OwnedGame[]; at: number } | null = null
 
 function getSecret(name: string): string {
     const value = process.env[name]
@@ -82,7 +91,7 @@ function setSessionCookie(res: VercelResponse, value: string, maxAge: number) {
 
     res.setHeader(
         "Set-Cookie",
-        `${COOKIE_NAME}=${value}; HttpOnly; Path=/api/game-collections; SameSite=Strict; Max-Age=${maxAge}${secure}`
+        `${COOKIE_NAME}=${value}; HttpOnly; Path=/api; SameSite=Strict; Max-Age=${maxAge}${secure}`
     )
 }
 
@@ -143,6 +152,47 @@ async function saveCollections(data: GameCollections) {
     })
 }
 
+async function getOwnedGames(): Promise<OwnedGame[]> {
+    if (libraryCache && Date.now() - libraryCache.at < LIBRARY_TTL_MS) {
+        return libraryCache.games
+    }
+
+    const url = new URL("https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/")
+    url.searchParams.set("key", getSecret("STEAM_API_KEY"))
+    url.searchParams.set("steamid", STEAM_ID)
+    url.searchParams.set("include_appinfo", "true")
+    url.searchParams.set("include_played_free_games", "true")
+
+    const response = await fetch(url)
+
+    if (!response.ok) {
+        throw new Error(`Steam request failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+    const games: OwnedGame[] = (data.response?.games ?? []).map(
+        (game: OwnedGame) => ({ appid: game.appid, name: game.name })
+    )
+
+    libraryCache = { games, at: Date.now() }
+    return games
+}
+
+// Turns saved appids into { appid, name } so the browser never needs the full library.
+async function resolveCollections(collections: GameCollections) {
+    const byId = new Map((await getOwnedGames()).map((game) => [game.appid, game]))
+
+    const pick = (ids: number[]) =>
+        ids
+            .map((id) => byId.get(id))
+            .filter((game): game is OwnedGame => game !== undefined)
+
+    return {
+        liked: pick(collections.liked),
+        wantToPlay: pick(collections.wantToPlay),
+    }
+}
+
 export default async function handler(
     req: VercelRequest,
     res: VercelResponse
@@ -151,7 +201,20 @@ export default async function handler(
 
     try {
         if (req.method === "GET") {
-            return res.status(200).json(await readCollections())
+            const collections = await readCollections()
+
+            // Public page: only the chosen games, safe to cache briefly at the edge.
+            if (req.query.resolve === "1") {
+                const resolved = await resolveCollections(collections)
+                res.setHeader(
+                    "Cache-Control",
+                    "public, s-maxage=60, stale-while-revalidate=600"
+                )
+                return res.status(200).json(resolved)
+            }
+
+            // Raw ids (used by the admin picker) must never be cached.
+            return res.status(200).json(collections)
         }
 
         if (req.method === "POST") {

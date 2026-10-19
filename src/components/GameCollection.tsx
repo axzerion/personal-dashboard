@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react"
-import type { SteamLibraryGame } from "../data/steamLibrary"
-import { getGameCollections } from "../data/gameCollections"
+import {useCollectionGames} from "../hooks/resources"
+import {steamHeaderUrl} from "../data/steamUtils"
 
 interface GameCollectionProps {
     title: string
-    description: string
+    description?: string
     collection: "liked" | "wantToPlay"
 }
 
@@ -13,56 +12,8 @@ export default function GameCollection({
                                            description,
                                            collection,
                                        }: GameCollectionProps) {
-    const [games, setGames] = useState<SteamLibraryGame[]>([])
-    const [loading, setLoading] = useState(true)
-
-    useEffect(() => {
-        let cancelled = false
-
-        async function loadGames() {
-            setLoading(true)
-
-            try {
-                const [collections, response] = await Promise.all([
-                    getGameCollections(),
-                    fetch("/api/steam?type=library"),
-                ])
-
-                if (!response.ok) {
-                    throw new Error("Couldn't load Steam library.")
-                }
-
-                const data = await response.json()
-                const library: SteamLibraryGame[] = data.games ?? []
-                const selectedIds = collections[collection]
-
-                const selectedGames = selectedIds
-                    .map((id) =>
-                        library.find((game) => game.appid === id)
-                    )
-                    .filter(
-                        (game): game is SteamLibraryGame =>
-                            game !== undefined
-                    )
-
-                if (!cancelled) {
-                    setGames(selectedGames)
-                }
-            } catch (error) {
-                console.error("Couldn't load game collection:", error)
-            } finally {
-                if (!cancelled) {
-                    setLoading(false)
-                }
-            }
-        }
-
-        void loadGames()
-
-        return () => {
-            cancelled = true
-        }
-    }, [collection])
+    const {data, loading, error} = useCollectionGames()
+    const games = data?.[collection] ?? []
 
     return (
         <section className="game-collection">
@@ -70,14 +21,14 @@ export default function GameCollection({
                 <div>
                     <span className="window-label">MY COLLECTION</span>
                     <h2>{title}</h2>
-                    <p>{description}</p>
+                    {description && <p>{description}</p>}
                 </div>
             </div>
 
             {loading ? (
-                <p className="game-collection-empty">
-                    Loading collection...
-                </p>
+                <p className="game-collection-empty">Loading collection…</p>
+            ) : error ? (
+                <p className="state state-error" role="alert">{error}</p>
             ) : games.length > 0 ? (
                 <div className="game-cover-grid">
                     {games.map((game) => (
@@ -90,7 +41,7 @@ export default function GameCollection({
                             title={game.name}
                         >
                             <img
-                                src={`https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/header.jpg`}
+                                src={steamHeaderUrl(game.appid)}
                                 alt={game.name}
                                 loading="lazy"
                             />
@@ -99,9 +50,7 @@ export default function GameCollection({
                     ))}
                 </div>
             ) : (
-                <p className="game-collection-empty">
-                    No games selected yet. Use Edit to add some.
-                </p>
+                <p className="game-collection-empty">Nothing here yet.</p>
             )}
         </section>
     )

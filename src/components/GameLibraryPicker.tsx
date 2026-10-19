@@ -7,6 +7,7 @@ import {
     saveGameCollections,
 } from "../data/gameCollections"
 import type {GameCollections} from "../data/gameCollections"
+import { invalidateCollectionGames } from "../hooks/resources"
 
 type Collection = "liked" | "wantToPlay"
 
@@ -94,6 +95,7 @@ export default function GameLibraryPicker() {
 
         try {
             await saveGameCollections(snapshot)
+            invalidateCollectionGames()
             setSaveStatus("All changes saved")
         } catch (err) {
             setError(

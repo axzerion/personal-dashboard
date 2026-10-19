@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react"
+import {useEffect, useState} from "react"
 import {
     checkAdminSession,
     loginAdmin,
     logoutAdmin,
 } from "../data/gameCollections"
+import ContentEditor from "./ContentEditor"
+import LiftEditor from "./LiftEditor"
 import GameLibraryPicker from "./GameLibraryPicker"
+import Page from "./Page"
+import "../content.css"
+
+type Tab = "games" | "content" | "lifts"
 
 export default function AdminPage() {
     const [password, setPassword] = useState("")
@@ -12,6 +18,7 @@ export default function AdminPage() {
     const [checkingSession, setCheckingSession] = useState(true)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [tab, setTab] = useState<Tab>("games")
 
     useEffect(() => {
         let cancelled = false
@@ -19,18 +26,11 @@ export default function AdminPage() {
         async function verifySession() {
             try {
                 const authenticated = await checkAdminSession()
-
-                if (!cancelled) {
-                    setLoggedIn(authenticated)
-                }
+                if (!cancelled) setLoggedIn(authenticated)
             } catch {
-                if (!cancelled) {
-                    setLoggedIn(false)
-                }
+                if (!cancelled) setLoggedIn(false)
             } finally {
-                if (!cancelled) {
-                    setCheckingSession(false)
-                }
+                if (!cancelled) setCheckingSession(false)
             }
         }
 
@@ -57,7 +57,6 @@ export default function AdminPage() {
         }
     }
 
-
     async function handleLogout() {
         setLoading(true)
         setError(null)
@@ -72,56 +71,72 @@ export default function AdminPage() {
         }
     }
 
-
     return (
-        <main className="dashboard">
-            <header className="topbar">
-                <a className="brand" href="/">PERSONAL SPACE</a>
-                <div className="status">
-                    <span className="status-dot" />
-                    ADMIN
-                </div>
-            </header>
+        <Page label="PRIVATE AREA" title="Administration.">
+            {checkingSession ? (
+                <p className="state">Checking admin session…</p>
+            ) : loggedIn ? (
+                <>
+                    <p className="lede">
+                        Manage what appears on your public pages.
+                    </p>
+                    <button
+                        className="button"
+                        onClick={() => void handleLogout()}
+                        disabled={loading}
+                    >
+                        {loading ? "Logging out…" : "Log out"}
+                    </button>
 
-            <section className="section-page">
-                <span className="window-label">PRIVATE AREA</span>
-                <h1>Administration.</h1>
-
-                {checkingSession ? (
-                    <p>Checking admin session...</p>
-                ) : loggedIn ? (
-                    <>
-                        <p>Manage the game collections displayed on your public Games page.</p>
-
+                    <div className="chips admin-tabs" role="group" aria-label="Admin sections">
                         <button
-                            className="game-collection-edit"
-                            onClick={() => void handleLogout()}
-                            disabled={loading}
+                            type="button"
+                            className="chip"
+                            aria-pressed={tab === "games"}
+                            onClick={() => setTab("games")}
                         >
-                            {loading ? "Logging out..." : "Log out"}
+                            Games
                         </button>
-
-                        <GameLibraryPicker />
-                    </>
-                ) : (
-                    <form onSubmit={(event) => void handleLogin(event)}>
-                        <label htmlFor="admin-password">Admin password</label>
-                        <input
-                            id="admin-password"
-                            type="password"
-                            autoComplete="current-password"
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                            required
-                        />
-                        <button type="submit" disabled={loading}>
-                            {loading ? "Logging in..." : "Log in"}
+                        <button
+                            type="button"
+                            className="chip"
+                            aria-pressed={tab === "content"}
+                            onClick={() => setTab("content")}
+                        >
+                            Interests
                         </button>
-                    </form>
-                )}
+                        <button
+                            type="button"
+                            className="chip"
+                            aria-pressed={tab === "lifts"}
+                            onClick={() => setTab("lifts")}
+                        >
+                            Lifts
+                        </button>
+                    </div>
 
-                {error && <p role="alert">{error}</p>}
-            </section>
-        </main>
+                    {tab === "games" && <GameLibraryPicker/>}
+                    {tab === "content" && <ContentEditor/>}
+                    {tab === "lifts" && <LiftEditor/>}
+                </>
+            ) : (
+                <form className="admin-form" onSubmit={(event) => void handleLogin(event)}>
+                    <label htmlFor="admin-password">Admin password</label>
+                    <input
+                        id="admin-password"
+                        type="password"
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        required
+                    />
+                    <button className="button" type="submit" disabled={loading}>
+                        {loading ? "Logging in…" : "Log in"}
+                    </button>
+                </form>
+            )}
+
+            {error && <p className="state state-error" role="alert">{error}</p>}
+        </Page>
     )
 }

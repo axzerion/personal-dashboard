@@ -79,3 +79,23 @@ export async function saveGameCollections(
         throw new Error("Couldn't save game collections.")
     }
 }
+
+export interface CollectionGame {
+    appid: number
+    name: string
+}
+
+export interface ResolvedGameCollections {
+    liked: CollectionGame[]
+    wantToPlay: CollectionGame[]
+}
+
+export async function getCollectionGames(): Promise<ResolvedGameCollections> {
+    const response = await fetch("/api/game-collections?resolve=1")
+
+    if (!response.ok) {
+        throw new Error("Couldn’t load game collections.")
+    }
+
+    return response.json()
+}
