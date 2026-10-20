@@ -22,7 +22,7 @@ export const sections: Section[] = [
         label: "Games",
         heading: "Games",
         summary: "Games I enjoy and what I’ve been playing lately.",
-        pageIntro: "What I’m playing.",
+        pageIntro: "What I’m playing or want to play.",
     },
     {
         path: "/interests",
@@ -30,7 +30,7 @@ export const sections: Section[] = [
         label: "Interests",
         heading: "Interests",
         summary: "Other interesting stuff.",
-        pageIntro: "Other stuff.",
+        pageIntro: "Things I’m interested in or like.",
     },
     {
         path: "/resources",

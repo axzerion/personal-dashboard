@@ -1,3 +1,4 @@
+import {useEffect} from "react"
 import {Link} from "react-router-dom"
 import {motion} from "framer-motion"
 import {sections} from "../data/sections"
@@ -30,6 +31,10 @@ function RecentTile({game}: { game: SteamGame }) {
 }
 
 export default function Home() {
+    useEffect(() => {
+        document.title = "Personal Space"
+    }, [])
+
     const {data: games, loading} = useRecentlyPlayedGames()
     const recent = games?.[0]
     const covers = games?.slice(0, 3) ?? []

@@ -9,6 +9,7 @@ export interface ContentItem {
     note?: string
     status?: ItemStatus
     value?: string
+    category?: string
 }
 
 export type ContentData = Record<string, ContentItem[]>
@@ -22,14 +23,14 @@ export interface LookupResult {
     url?: string
 }
 
-export const interestGroups = ["Watching", "Reading", "Active"] as const
+export const interestGroups = ["Watching", "Reading", "Activity"] as const
 export type InterestGroup = (typeof interestGroups)[number]
 
 export interface InterestSection {
     id: string
     title: string
     group: InterestGroup
-    kind: "shelf" | "stats"
+    kind: "shelf" | "stats" | "list" | "lifts"
     ratio?: "poster" | "wide"
     source?: LookupSource
     searchHint?: string
@@ -42,8 +43,8 @@ export const interestSections: InterestSection[] = [
     {id: "anime", title: "Anime", group: "Watching", kind: "shelf", ratio: "poster", source: "anime", searchHint: "Search anime"},
     {id: "videos", title: "Videos", group: "Watching", kind: "shelf", ratio: "wide", source: "video", searchHint: "Paste a YouTube link"},
     {id: "books", title: "Books", group: "Reading", kind: "shelf", ratio: "poster", source: "book", searchHint: "Search books"},
-    {id: "sports", title: "Sports", group: "Active", kind: "stats"},
-    {id: "gym", title: "Gym", group: "Active", kind: "stats"},
+    {id: "sports", title: "Sports", group: "Activity", kind: "list"},
+    {id: "gym", title: "Gym", group: "Activity", kind: "lifts"},
 ]
 
 export async function getContent(): Promise<ContentData> {

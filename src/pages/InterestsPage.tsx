@@ -3,6 +3,7 @@ import LiftProgress from "../components/LiftProgress"
 import Page from "../components/Page"
 import Shelf from "../components/Shelf"
 import StatCards from "../components/StatCards"
+import TopicList from "../components/TopicList"
 import {interestGroups, interestSections} from "../data/content"
 import type {InterestGroup, InterestSection} from "../data/content"
 import {getSection, pageProps} from "../data/sections"
@@ -18,7 +19,7 @@ export default function InterestsPage() {
     const hasLifts = (lifts?.entries.length ?? 0) > 0
 
     const hasContent = (section: InterestSection) =>
-        (data?.[section.id]?.length ?? 0) > 0 || (section.id === "gym" && hasLifts)
+        section.kind === "lifts" ? hasLifts : (data?.[section.id]?.length ?? 0) > 0
 
     const filled = interestSections.filter(hasContent)
     const groups = interestGroups.filter((name) => filled.some((s) => s.group === name))
@@ -58,14 +59,17 @@ export default function InterestsPage() {
                             <section key={section.id} className="interest-section">
                                 <h2>{section.title}</h2>
 
-                                {section.id === "gym" && lifts && <LiftProgress data={lifts}/>}
+                                {section.kind === "lifts" && lifts && <LiftProgress data={lifts}/>}
 
-                                {items.length > 0 &&
-                                    (section.kind === "shelf" ? (
-                                        <Shelf items={items} ratio={section.ratio ?? "poster"}/>
-                                    ) : (
-                                        <StatCards items={items}/>
-                                    ))}
+                                {items.length > 0 && section.kind === "shelf" && (
+                                    <Shelf items={items} ratio={section.ratio ?? "poster"}/>
+                                )}
+                                {items.length > 0 && section.kind === "stats" && (
+                                    <StatCards items={items}/>
+                                )}
+                                {items.length > 0 && section.kind === "list" && (
+                                    <TopicList items={items}/>
+                                )}
                             </section>
                         )
                     })}

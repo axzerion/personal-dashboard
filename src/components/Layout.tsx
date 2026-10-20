@@ -2,9 +2,15 @@ import {Link, NavLink, Outlet} from "react-router-dom"
 import {sections} from "../data/sections"
 import {useRecentlyPlayedGames} from "../hooks/resources"
 
+const externalLinks = [
+    {label: "GitHub", href: "https://github.com/axzerion"},
+    {label: "Steam", href: "https://steamcommunity.com/id/hahayesnt/"},
+]
+
 export default function Layout() {
     const {data: games} = useRecentlyPlayedGames()
     const latest = games?.[0]
+
 
     return (
         <div className="shell">
@@ -19,23 +25,26 @@ export default function Layout() {
                         </Link>
                     )}
 
-                    <nav className="nav" aria-label="Main navigation">
-                        <NavLink to="/" end>Home</NavLink>
-                        {sections.map((section) => (
-                            <NavLink key={section.path} to={section.path}>
-                                {section.label}
-                            </NavLink>
-                        ))}
+                    <div className="topbar-right">
+                        <nav className="nav nav-main" aria-label="Main navigation">
+                            <NavLink to="/" end>Home</NavLink>
+                            {sections.map((section) => (
+                                <NavLink key={section.path} to={section.path}>
+                                    {section.label}
+                                </NavLink>
+                            ))}
+                        </nav>
 
                         <span className="nav-divider" aria-hidden="true"/>
 
-                        <a href="https://github.com/axzerion" target="_blank" rel="noreferrer">
-                            GitHub ↗
-                        </a>
-                        <a href="https://steamcommunity.com/id/hahayesnt/" target="_blank" rel="noreferrer">
-                            Steam ↗
-                        </a>
-                    </nav>
+                        <nav className="nav nav-external" aria-label="External links">
+                            {externalLinks.map((link) => (
+                                <a key={link.href} href={link.href} target="_blank" rel="noreferrer">
+                                    {link.label} ↗
+                                </a>
+                            ))}
+                        </nav>
+                    </div>
                 </header>
 
                 <Outlet/>

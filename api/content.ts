@@ -23,6 +23,7 @@ interface ContentItem {
     note?: string
     status?: ItemStatus
     value?: string
+    category?: string
 }
 
 type ContentData = Record<string, ContentItem[]>
@@ -115,6 +116,7 @@ function isValidItem(value: unknown): value is ContentItem {
         isOptionalUrl(item.url) &&
         isOptionalText(item.note, 300) &&
         isOptionalText(item.value, 100) &&
+        isOptionalText(item.category, 60) &&
         (item.status === undefined || STATUSES.includes(item.status as ItemStatus))
     )
 }

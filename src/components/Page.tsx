@@ -1,3 +1,4 @@
+import {useEffect} from "react"
 import type {ReactNode} from "react"
 import {motion} from "framer-motion"
 
@@ -9,6 +10,10 @@ interface PageProps {
 }
 
 export default function Page({label, title, intro, children}: PageProps) {
+    useEffect(() => {
+        document.title = `${title.replace(/\.$/, "")} · Personal Space`
+    }, [title])
+
     return (
         <motion.section
             className="page"

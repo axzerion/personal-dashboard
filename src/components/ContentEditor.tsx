@@ -31,6 +31,7 @@ export default function ContentEditor() {
 
     const [manual, setManual] = useState({title: "", cover: "", url: ""})
     const [stat, setStat] = useState({label: "", value: "", note: ""})
+    const [topic, setTopic] = useState({name: "", note: ""})
 
     const section = interestSections.find((s) => s.id === sectionId) ?? interestSections[0]
     const items = content?.[section.id] ?? []
@@ -151,6 +152,17 @@ export default function ContentEditor() {
         }
     }
 
+    function addTopic(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+
+        const name = topic.name.trim()
+        if (!name) return
+
+        if (addItem({title: name, note: topic.note.trim() || undefined})) {
+            setTopic({name: "", note: ""})
+        }
+    }
+
     async function handleSave() {
         if (!content) return
 
@@ -204,7 +216,7 @@ export default function ContentEditor() {
             </div>
 
             <div className="chips" role="group" aria-label="Section">
-                {interestSections.map((s) => (
+                {interestSections.filter((s) => s.kind !== "lifts").map((s) => (
                     <button
                         key={s.id}
                         type="button"
@@ -322,6 +334,28 @@ export default function ContentEditor() {
                         maxLength={300}
                         value={stat.note}
                         onChange={(event) => setStat({...stat, note: event.target.value})}
+                    />
+                    <button className="button" type="submit">Add</button>
+                </form>
+            )}
+
+            {section.kind === "list" && (
+                <form className="editor-form" onSubmit={addTopic}>
+                    <input
+                        className="editor-input"
+                        placeholder="Name (e.g. Muay Thai)"
+                        aria-label="Name"
+                        maxLength={200}
+                        value={topic.name}
+                        onChange={(event) => setTopic({...topic, name: event.target.value})}
+                    />
+                    <input
+                        className="editor-input"
+                        placeholder="Note (optional)"
+                        aria-label="Note"
+                        maxLength={300}
+                        value={topic.note}
+                        onChange={(event) => setTopic({...topic, note: event.target.value})}
                     />
                     <button className="button" type="submit">Add</button>
                 </form>
