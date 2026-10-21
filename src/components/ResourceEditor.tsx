@@ -1,11 +1,26 @@
 import {useEffect, useState} from "react"
 import {getEditableContent, saveContent} from "../data/content"
-import type {ContentData, ContentItem} from "../data/content"
+import type {ContentData, ContentItem, ResourceKind} from "../data/content"
+import {detectKind, getYouTubeId, youtubeThumb} from "../data/media"
 import {invalidateContent} from "../hooks/resources"
 import "../content.css"
 
 const KEY = "resources"
 const MAX_ITEMS = 200
+
+function previewOf(item: ContentItem): string | undefined {
+    const url = item.url ?? ""
+    const kind = item.kind ?? detectKind(url)
+
+    if (kind === "image") return url || undefined
+
+    if (kind === "video") {
+        const id = getYouTubeId(url)
+        return id ? youtubeThumb(id) : undefined
+    }
+
+    return undefined
+}
 
 export default function ResourceEditor() {
     const [content, setContent] = useState<ContentData | null>(null)
@@ -97,6 +112,7 @@ export default function ResourceEditor() {
                 title,
                 url,
                 category,
+                kind: detectKind(url),
                 note: form.note.trim() || undefined,
             },
             ...items,
@@ -218,6 +234,9 @@ export default function ResourceEditor() {
                 <ul className="editor-list">
                     {items.map((item, index) => (
                         <li key={item.id} className="editor-row">
+                            {previewOf(item) && (
+                                <img className="editor-thumb wide" src={previewOf(item)} alt=""/>
+                            )}
                             <div className="editor-main">
                                 <span className="editor-title">{item.title}</span>
                                 <span className="editor-sub">{item.url}</span>
@@ -243,6 +262,19 @@ export default function ResourceEditor() {
                                     }
                                 />
                             </div>
+
+                            <select
+                                className="editor-select"
+                                aria-label={`Type for ${item.title}`}
+                                value={item.kind ?? detectKind(item.url ?? "")}
+                                onChange={(event) =>
+                                    patchItem(item.id, {kind: event.target.value as ResourceKind})
+                                }
+                            >
+                                <option value="link">Link</option>
+                                <option value="video">Video</option>
+                                <option value="image">Image</option>
+                            </select>
 
                             <div className="editor-actions">
                                 <button

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
-import { get, put } from "@vercel/blob"
-import { createHmac, timingSafeEqual } from "node:crypto"
+import { del, get, put } from "@vercel/blob"
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 import dotenv from "dotenv"
 
 dotenv.config({ path: ".env.local" })
@@ -10,6 +10,7 @@ const BLOB_PATH = "content.json"
 const USER_AGENT = "personal-space/1.0 (personal website)"
 const STATUSES = ["favorite", "current", "want", "done"] as const
 const KEY_PATTERN = /^[a-z0-9-]{1,40}$/
+const KINDS = ["link", "video", "image"] as const
 const YOUTUBE_HOSTS = new Set(["www.youtube.com", "youtube.com", "m.youtube.com", "youtu.be"])
 
 type ItemStatus = (typeof STATUSES)[number]
@@ -24,6 +25,7 @@ interface ContentItem {
     status?: ItemStatus
     value?: string
     category?: string
+    kind?: (typeof KINDS)[number]
 }
 
 type ContentData = Record<string, ContentItem[]>
@@ -45,8 +47,15 @@ function getSecret(name: string): string {
     return value
 }
 
+// A short secret makes signed sessions guessable, so refuse to run with one.
+function getSessionSecret(): string {
+    const secret = getSecret("SESSION_SECRET")
+    if (secret.length < 32) throw new Error("SESSION_SECRET must be at least 32 characters")
+    return secret
+}
+
 function sign(value: string): string {
-    return createHmac("sha256", getSecret("SESSION_SECRET"))
+    return createHmac("sha256", getSessionSecret())
         .update(value)
         .digest("hex")
 }
@@ -117,6 +126,7 @@ function isValidItem(value: unknown): value is ContentItem {
         isOptionalText(item.note, 300) &&
         isOptionalText(item.value, 100) &&
         isOptionalText(item.category, 60) &&
+        (item.kind === undefined || KINDS.includes(item.kind as (typeof KINDS)[number])) &&
         (item.status === undefined || STATUSES.includes(item.status as ItemStatus))
     )
 }
@@ -290,6 +300,181 @@ async function readLifts(): Promise<LiftsData> {
 
 async function saveLifts(data: LiftsData) {
     await put(LIFTS_BLOB_PATH, JSON.stringify(data), {
+        access: "private",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "application/json",
+        token: getSecret("BLOB_READ_WRITE_TOKEN"),
+    })
+}
+
+/* ---------- Security helpers ---------- */
+
+function isSameOrigin(req: VercelRequest): boolean {
+    const origin = req.headers.origin
+
+    // Browsers always send Origin on POST and PUT, so a missing one is not a cross-site browser request.
+    if (!origin) return true
+
+    try {
+        const forwarded = req.headers["x-forwarded-host"]
+        const host = (Array.isArray(forwarded) ? forwarded[0] : forwarded) ?? req.headers.host
+
+        return new URL(origin).host === host
+    } catch {
+        return false
+    }
+}
+
+async function readBody(req: VercelRequest, limit: number): Promise<Buffer | null> {
+    const chunks: Buffer[] = []
+    let total = 0
+
+    for await (const chunk of req) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+        total += buffer.length
+
+        if (total > limit) return null
+        chunks.push(buffer)
+    }
+
+    return Buffer.concat(chunks)
+}
+
+function isJpeg(data: Buffer): boolean {
+    return data.length > 4 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff
+}
+
+// Only known fields are saved, so nothing unexpected can ride along in a request.
+function sanitizeContent(data: ContentData): ContentData {
+    return Object.fromEntries(
+        Object.entries(data).map(([key, items]) => [
+            key,
+            items.map((item) => ({
+                id: item.id,
+                title: item.title.trim(),
+                subtitle: item.subtitle,
+                cover: item.cover,
+                url: item.url,
+                note: item.note,
+                status: item.status,
+                value: item.value,
+                category: item.category,
+                kind: item.kind,
+            })),
+        ])
+    )
+}
+
+function sanitizeLifts(data: LiftsData): LiftsData {
+    return {
+        lifts: data.lifts.map((lift) => ({id: lift.id, name: lift.name.trim(), unit: lift.unit})),
+        entries: data.entries.map((entry) => ({
+            id: entry.id,
+            liftId: entry.liftId,
+            date: entry.date,
+            weight: entry.weight,
+            reps: entry.reps,
+        })),
+    }
+}
+
+/* ---------- Ranks and screenshots ---------- */
+
+const RANKS_BLOB_PATH = "ranks.json"
+const SCREENSHOT_PREFIX = "screenshots/"
+const SCREENSHOT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/
+const MAX_SCREENSHOT_BYTES = 1_500_000
+
+interface RankEntry {
+    id: string
+    game: string
+    rank: string
+    peak?: string
+    note?: string
+    screenshot?: string
+    updated: string
+}
+
+interface RanksData {
+    ranks: RankEntry[]
+}
+
+const emptyRanks: RanksData = { ranks: [] }
+
+function isValidRanks(value: unknown): value is RanksData {
+    if (!value || typeof value !== "object") return false
+
+    const data = value as Record<string, unknown>
+
+    if (!Array.isArray(data.ranks) || data.ranks.length > 100) return false
+
+    return data.ranks.every((entry) => {
+        if (!entry || typeof entry !== "object") return false
+
+        const row = entry as Record<string, unknown>
+
+        return (
+            isText(row.id, 60) &&
+            row.id.length > 0 &&
+            isText(row.game, 100) &&
+            row.game.trim().length > 0 &&
+            isText(row.rank, 60) &&
+            row.rank.trim().length > 0 &&
+            isOptionalText(row.peak, 60) &&
+            isOptionalText(row.note, 300) &&
+            (row.screenshot === undefined ||
+                (typeof row.screenshot === "string" && SCREENSHOT_ID.test(row.screenshot))) &&
+            isIsoDate(row.updated)
+        )
+    })
+}
+
+function sanitizeRanks(data: RanksData): RanksData {
+    return {
+        ranks: data.ranks.map((entry) => ({
+            id: entry.id,
+            game: entry.game.trim(),
+            rank: entry.rank.trim(),
+            peak: entry.peak?.trim() || undefined,
+            note: entry.note?.trim() || undefined,
+            screenshot: entry.screenshot,
+            updated: entry.updated,
+        })),
+    }
+}
+
+async function readRanks(): Promise<RanksData> {
+    try {
+        const result = await get(RANKS_BLOB_PATH, {
+            access: "private",
+            token: getSecret("BLOB_READ_WRITE_TOKEN"),
+        })
+
+        if (!result || result.statusCode !== 200 || !result.stream) return emptyRanks
+
+        const chunks: Uint8Array[] = []
+
+        for await (const chunk of result.stream) {
+            chunks.push(chunk)
+        }
+
+        const data: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"))
+
+        if (!isValidRanks(data)) {
+            throw new Error("Saved ranks have an invalid format")
+        }
+
+        return data
+    } catch (error) {
+        // First run: nothing has been saved yet.
+        if (error instanceof Error && error.name.includes("NotFound")) return emptyRanks
+        throw error
+    }
+}
+
+async function saveRanks(data: RanksData) {
+    await put(RANKS_BLOB_PATH, JSON.stringify(data), {
         access: "private",
         addRandomSuffix: false,
         allowOverwrite: true,
@@ -476,8 +661,71 @@ const lookups = new Map<string, (q: string) => Promise<LookupResult[]>>([
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader("Cache-Control", "no-store")
 
+    if (req.method !== "GET" && !isSameOrigin(req)) {
+        return res.status(403).json({ error: "Forbidden" })
+    }
+
     try {
         if (req.method === "GET") {
+            if (req.query.resource === "screenshot") {
+                const id = typeof req.query.id === "string" ? req.query.id : ""
+
+                if (!SCREENSHOT_ID.test(id)) {
+                    return res.status(404).json({ error: "Not found" })
+                }
+
+                let result: Awaited<ReturnType<typeof get>> | null = null
+
+                try {
+                    result = await get(`${SCREENSHOT_PREFIX}${id}`, {
+                        access: "private",
+                        token: getSecret("BLOB_READ_WRITE_TOKEN"),
+                    })
+                } catch (error) {
+                    if (error instanceof Error && error.name.includes("NotFound")) {
+                        return res.status(404).json({ error: "Not found" })
+                    }
+
+                    throw error
+                }
+
+                if (!result || result.statusCode !== 200 || !result.stream) {
+                    return res.status(404).json({ error: "Not found" })
+                }
+
+                const chunks: Uint8Array[] = []
+
+                for await (const chunk of result.stream) {
+                    chunks.push(chunk)
+                }
+
+                // File names are random and never reused, so the image can be cached for good.
+                res.setHeader("Content-Type", "image/jpeg")
+                res.setHeader("Cache-Control", "public, max-age=31536000, immutable")
+                res.setHeader("X-Content-Type-Options", "nosniff")
+                res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox")
+                return res.status(200).send(Buffer.concat(chunks))
+            }
+
+            if (req.query.resource === "ranks") {
+                const freshRanks = req.query.fresh === "1"
+
+                if (freshRanks && !isAuthenticated(req)) {
+                    return res.status(401).json({ error: "Admin login required" })
+                }
+
+                const ranks = await readRanks()
+
+                if (!freshRanks) {
+                    res.setHeader(
+                        "Cache-Control",
+                        "public, s-maxage=30, stale-while-revalidate=30"
+                    )
+                }
+
+                return res.status(200).json(ranks)
+            }
+
             if (req.query.resource === "lifts") {
                 const freshLifts = req.query.fresh === "1"
 
@@ -549,9 +797,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json(content)
         }
 
+        if (req.method === "POST") {
+            if (req.query.resource !== "screenshot") {
+                return res.status(405).json({ error: "Method not allowed" })
+            }
+
+            if (!isAuthenticated(req)) {
+                return res.status(401).json({ error: "Admin login required" })
+            }
+
+            const declared = Number(req.headers["content-length"] ?? 0)
+
+            if (declared > MAX_SCREENSHOT_BYTES) {
+                return res.status(413).json({ error: "Image too large" })
+            }
+
+            const body = await readBody(req, MAX_SCREENSHOT_BYTES)
+
+            if (!body) {
+                return res.status(413).json({ error: "Image too large" })
+            }
+
+            if (!isJpeg(body)) {
+                return res.status(400).json({ error: "Only JPEG images are accepted" })
+            }
+
+            // The server picks the name, so a request can never choose where a file is stored.
+            const id = `${randomUUID()}.jpg`
+
+            await put(`${SCREENSHOT_PREFIX}${id}`, body, {
+                access: "private",
+                addRandomSuffix: false,
+                allowOverwrite: false,
+                contentType: "image/jpeg",
+                token: getSecret("BLOB_READ_WRITE_TOKEN"),
+            })
+
+            return res.status(200).json({ id })
+        }
+
         if (req.method === "PUT") {
             if (!isAuthenticated(req)) {
                 return res.status(401).json({ error: "Admin login required" })
+            }
+
+            if (req.query.resource === "ranks") {
+                if (!isValidRanks(req.body)) {
+                    return res.status(400).json({
+                        error: "Invalid ranks data. Check names, ranks, dates and screenshots.",
+                    })
+                }
+
+                const next = sanitizeRanks(req.body)
+                const previous = await readRanks()
+
+                await saveRanks(next)
+
+                // Delete screenshots that are no longer used (best effort).
+                const kept = new Set(next.ranks.map((entry) => entry.screenshot))
+                const orphaned = previous.ranks
+                    .map((entry) => entry.screenshot)
+                    .filter((id): id is string => !!id && !kept.has(id))
+
+                if (orphaned.length > 0) {
+                    try {
+                        await del(
+                            orphaned.map((id) => `${SCREENSHOT_PREFIX}${id}`),
+                            { token: getSecret("BLOB_READ_WRITE_TOKEN") }
+                        )
+                    } catch (error) {
+                        console.error("Couldn't delete old screenshots:", error)
+                    }
+                }
+
+                return res.status(200).json({ success: true })
             }
 
             if (req.query.resource === "lifts") {
@@ -561,7 +880,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     })
                 }
 
-                await saveLifts(req.body)
+                await saveLifts(sanitizeLifts(req.body))
                 return res.status(200).json({ success: true })
             }
 
@@ -571,7 +890,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 })
             }
 
-            await saveContent(req.body)
+            await saveContent(sanitizeContent(req.body))
             return res.status(200).json({ success: true })
         }
 

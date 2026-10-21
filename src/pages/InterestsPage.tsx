@@ -4,6 +4,9 @@ import Page from "../components/Page"
 import Shelf from "../components/Shelf"
 import StatCards from "../components/StatCards"
 import TopicList from "../components/TopicList"
+import MediaLightbox from "../components/MediaLightbox"
+import {toMediaView} from "../data/media"
+import type {MediaView} from "../data/media"
 import {interestGroups, interestSections} from "../data/content"
 import type {InterestGroup, InterestSection} from "../data/content"
 import {getSection, pageProps} from "../data/sections"
@@ -14,6 +17,7 @@ export default function InterestsPage() {
     const {data, loading: contentLoading, error} = useContent()
     const {data: lifts, loading: liftsLoading} = useLifts()
     const [group, setGroup] = useState<InterestGroup | "All">("All")
+    const [media, setMedia] = useState<MediaView | null>(null)
 
     const loading = contentLoading || liftsLoading
     const hasLifts = (lifts?.entries.length ?? 0) > 0
@@ -62,7 +66,15 @@ export default function InterestsPage() {
                                 {section.kind === "lifts" && lifts && <LiftProgress data={lifts}/>}
 
                                 {items.length > 0 && section.kind === "shelf" && (
-                                    <Shelf items={items} ratio={section.ratio ?? "poster"}/>
+                                    <Shelf
+                                        items={items}
+                                        ratio={section.ratio ?? "poster"}
+                                        onPlay={
+                                            section.source === "video"
+                                                ? (item) => setMedia(toMediaView(item))
+                                                : undefined
+                                        }
+                                    />
                                 )}
                                 {items.length > 0 && section.kind === "stats" && (
                                     <StatCards items={items}/>
@@ -82,6 +94,7 @@ export default function InterestsPage() {
                     )}
                 </>
             )}
+            <MediaLightbox media={media} onClose={() => setMedia(null)}/>
         </Page>
     )
 }

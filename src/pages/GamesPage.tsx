@@ -1,15 +1,29 @@
-import Page from "../components/Page"
+import {useState} from "react"
 import GameCard from "../components/GameCard"
 import GameCollection from "../components/GameCollection"
+import MediaLightbox from "../components/MediaLightbox"
+import Page from "../components/Page"
+import RankCards from "../components/RankCards"
+import type {MediaView} from "../data/media"
 import {getSection, pageProps} from "../data/sections"
-import {useRecentlyPlayedGames} from "../hooks/resources"
+import {useRanks, useRecentlyPlayedGames} from "../hooks/resources"
+import "../content.css"
 
 export default function GamesPage() {
     const {data: games, loading, error} = useRecentlyPlayedGames()
+    const {data: ranks} = useRanks()
+    const [media, setMedia] = useState<MediaView | null>(null)
 
     return (
         <Page {...pageProps(getSection("/games"))}>
             <div className="games-widgets">
+                {ranks && ranks.ranks.length > 0 && (
+                    <section className="game-ranks">
+                        <h2>Competitive ranks</h2>
+                        <RankCards ranks={ranks.ranks} onOpen={setMedia}/>
+                    </section>
+                )}
+
                 <GameCollection title="Games I Like" collection="liked" description=""/>
                 <GameCollection title="Want to Play" collection="wantToPlay" description=""/>
 
@@ -28,6 +42,8 @@ export default function GamesPage() {
                     )}
                 </section>
             </div>
+
+            <MediaLightbox media={media} onClose={() => setMedia(null)}/>
         </Page>
     )
 }

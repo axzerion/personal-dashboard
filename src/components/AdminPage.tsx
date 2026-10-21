@@ -6,12 +6,13 @@ import {
 } from "../data/gameCollections"
 import ContentEditor from "./ContentEditor"
 import LiftEditor from "./LiftEditor"
+import RankEditor from "./RankEditor"
 import ResourceEditor from "./ResourceEditor"
 import GameLibraryPicker from "./GameLibraryPicker"
 import Page from "./Page"
 import "../content.css"
 
-type Tab = "games" | "content" | "lifts" | "resources"
+type Tab = "games" | "content" | "lifts" | "resources" | "ranks"
 
 export default function AdminPage() {
     const [password, setPassword] = useState("")
@@ -122,12 +123,21 @@ export default function AdminPage() {
                         >
                             Resources
                         </button>
+                        <button
+                            type="button"
+                            className="chip"
+                            aria-pressed={tab === "ranks"}
+                            onClick={() => setTab("ranks")}
+                        >
+                            Ranks
+                        </button>
                     </div>
 
                     {tab === "games" && <GameLibraryPicker/>}
                     {tab === "content" && <ContentEditor/>}
                     {tab === "lifts" && <LiftEditor/>}
                     {tab === "resources" && <ResourceEditor/>}
+                    {tab === "ranks" && <RankEditor/>}
                 </>
             ) : (
                 <form className="admin-form" onSubmit={(event) => void handleLogin(event)}>

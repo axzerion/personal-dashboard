@@ -36,8 +36,15 @@ function getSecret(name: string): string {
     return value
 }
 
+// A short secret makes signed sessions guessable, so refuse to run with one.
+function getSessionSecret(): string {
+    const secret = getSecret("SESSION_SECRET")
+    if (secret.length < 32) throw new Error("SESSION_SECRET must be at least 32 characters")
+    return secret
+}
+
 function sign(value: string): string {
-    return createHmac("sha256", getSecret("SESSION_SECRET"))
+    return createHmac("sha256", getSessionSecret())
         .update(value)
         .digest("hex")
 }
@@ -193,14 +200,113 @@ async function resolveCollections(collections: GameCollections) {
     }
 }
 
+function isSameOrigin(req: VercelRequest): boolean {
+    const origin = req.headers.origin
+
+    // Browsers always send Origin on POST and PUT, so a missing one is not a cross-site browser request.
+    if (!origin) return true
+
+    try {
+        const forwarded = req.headers["x-forwarded-host"]
+        const host = (Array.isArray(forwarded) ? forwarded[0] : forwarded) ?? req.headers.host
+
+        return new URL(origin).host === host
+    } catch {
+        return false
+    }
+}
+
+const ATTEMPTS_PATH = "login-attempts.json"
+const MAX_FAILURES = 5
+const ATTEMPT_WINDOW_MS = 15 * 60 * 1000
+
+type Attempts = Record<string, { count: number; first: number }>
+
+// Visitors are tracked by a keyed hash of their IP address, never the address itself.
+function clientKey(req: VercelRequest): string {
+    const forwarded = req.headers["x-forwarded-for"]
+    const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim()
+    const address = first || req.socket?.remoteAddress || "unknown"
+
+    return createHmac("sha256", getSessionSecret()).update(`ip:${address}`).digest("hex").slice(0, 32)
+}
+
+function pruneAttempts(state: Attempts): Attempts {
+    const now = Date.now()
+
+    return Object.fromEntries(
+        Object.entries(state).filter(
+            ([, record]) =>
+                record &&
+                typeof record.count === "number" &&
+                typeof record.first === "number" &&
+                now - record.first < ATTEMPT_WINDOW_MS
+        )
+    )
+}
+
+async function readAttempts(): Promise<Attempts> {
+    try {
+        const result = await get(ATTEMPTS_PATH, {
+            access: "private",
+            token: getSecret("BLOB_READ_WRITE_TOKEN"),
+        })
+
+        if (!result || result.statusCode !== 200 || !result.stream) return {}
+
+        const chunks: Uint8Array[] = []
+
+        for await (const chunk of result.stream) {
+            chunks.push(chunk)
+        }
+
+        const data: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"))
+
+        return data && typeof data === "object" ? (data as Attempts) : {}
+    } catch {
+        return {}
+    }
+}
+
+async function writeAttempts(state: Attempts) {
+    try {
+        await put(ATTEMPTS_PATH, JSON.stringify(state), {
+            access: "private",
+            addRandomSuffix: false,
+            allowOverwrite: true,
+            contentType: "application/json",
+            token: getSecret("BLOB_READ_WRITE_TOKEN"),
+        })
+    } catch (error) {
+        console.error("Couldn't record login attempts:", error)
+    }
+}
+
+// Compares fixed-length digests, so the password's length is not revealed by timing.
+function passwordMatches(password: string): boolean {
+    const secret = getSessionSecret()
+    const digest = (value: string) => createHmac("sha256", secret).update(value).digest()
+
+    return timingSafeEqual(digest(password), digest(getSecret("ADMIN_PASSWORD")))
+}
+
 export default async function handler(
     req: VercelRequest,
     res: VercelResponse
 ) {
     res.setHeader("Cache-Control", "no-store")
 
+    if (req.method !== "GET" && !isSameOrigin(req)) {
+        return res.status(403).json({ error: "Forbidden" })
+    }
+
     try {
         if (req.method === "GET") {
+            // Raw ids are only needed by the admin picker; the public page uses ?resolve=1.
+            if (req.query.resolve !== "1" && !isAuthenticated(req)) {
+                return res.status(401).json({ error: "Admin login required" })
+            }
+
             const collections = await readCollections()
 
             // Public page: only the chosen games, safe to cache briefly at the edge.
@@ -236,19 +342,33 @@ export default async function handler(
 
             const password = req.body?.password
 
-            if (typeof password !== "string") {
+            if (typeof password !== "string" || password.length === 0 || password.length > 200) {
                 return res.status(400).json({ error: "Password required" })
             }
 
-            const expected = Buffer.from(getSecret("ADMIN_PASSWORD"))
-            const actual = Buffer.from(password)
+            const key = clientKey(req)
+            const attempts = pruneAttempts(await readAttempts())
+            const record = attempts[key]
 
-            const valid =
-                actual.length === expected.length &&
-                timingSafeEqual(actual, expected)
+            if (record && record.count >= MAX_FAILURES) {
+                const retryAfter = Math.ceil((record.first + ATTEMPT_WINDOW_MS - Date.now()) / 1000)
+                res.setHeader("Retry-After", String(Math.max(retryAfter, 1)))
+                return res.status(429).json({ error: "Too many attempts. Try again later." })
+            }
 
-            if (!valid) {
+            if (!passwordMatches(password)) {
+                attempts[key] = {
+                    count: (record?.count ?? 0) + 1,
+                    first: record?.first ?? Date.now(),
+                }
+                await writeAttempts(attempts)
+                await new Promise((resolve) => setTimeout(resolve, 500))
                 return res.status(401).json({ error: "Invalid password" })
+            }
+
+            if (record) {
+                delete attempts[key]
+                await writeAttempts(attempts)
             }
 
             setSessionCookie(res, createSession(), SESSION_DURATION)

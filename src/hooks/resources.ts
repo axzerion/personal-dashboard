@@ -4,6 +4,7 @@ import {getRecentlyPlayedGames} from "../data/steam"
 import {getCollectionGames} from "../data/gameCollections"
 import {getContent} from "../data/content"
 import {getLifts} from "../data/lifts"
+import {getRanks} from "../data/ranks"
 
 export interface Resource<T> {
     data: T | null
@@ -162,3 +163,13 @@ const lifts = createResource({
 
 export const useLifts = lifts.use
 export const invalidateLifts = lifts.invalidate
+
+const ranks = createResource({
+    fetcher: getRanks,
+    errorMessage: "Couldn’t load ranks.",
+    ttlMs: 60 * 1000,
+    storageKey: "ps:ranks",
+})
+
+export const useRanks = ranks.use
+export const invalidateRanks = ranks.invalidate
