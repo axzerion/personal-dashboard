@@ -2,7 +2,7 @@
    Selectors are prefixed with .game-ranks so they win over the base rules in content.css. */
 
 .game-ranks .rank-grid {
-    grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
 }
 
 .game-ranks .rank-card { overflow: hidden; }
@@ -42,6 +42,6 @@
 
 .game-ranks .rank-shot img {
     height: auto;
-    max-height: 560px;
+    max-height: 350px;
     object-fit: contain;
 }
