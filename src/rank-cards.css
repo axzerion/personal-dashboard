@@ -1,0 +1,39 @@
+/* Rank cards: larger screenshot (full card width) and the date in the top-right corner.
+   Selectors are prefixed with .game-ranks so they win over the base rules in content.css. */
+
+.game-ranks .rank-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr));
+}
+
+.game-ranks .rank-card { overflow: hidden; }
+
+.game-ranks .rank-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.game-ranks .rank-head .label { min-width: 0; overflow-wrap: anywhere; }
+
+.game-ranks .rank-date {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    white-space: nowrap;
+}
+
+/* Edge-to-edge image at the bottom of the card */
+.game-ranks .rank-shot {
+    width: calc(100% + 48px);
+    margin: 20px -24px -24px;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+}
+
+@media (hover: hover) {
+    .game-ranks .rank-shot:hover { border-top-color: var(--accent-border); }
+}

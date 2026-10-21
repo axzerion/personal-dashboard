@@ -2,6 +2,7 @@ import {formatDate} from "../data/lifts"
 import {screenshotUrl} from "../data/ranks"
 import type {RankEntry} from "../data/ranks"
 import type {MediaView} from "../data/media"
+import "../rank-cards.css"
 
 interface RankCardsProps {
     ranks: RankEntry[]
@@ -16,12 +17,15 @@ export default function RankCards({ranks, onOpen}: RankCardsProps) {
 
                 return (
                     <article key={entry.id} className="rank-card">
-                        <span className="label">{entry.game}</span>
+                        <div className="rank-head">
+                            <span className="label">{entry.game}</span>
+                            <time className="rank-date" dateTime={entry.updated}>
+                                {formatDate(entry.updated)}
+                            </time>
+                        </div>
+
                         <strong>{entry.rank}</strong>
-                        <p>
-                            {entry.peak ? `Peak: ${entry.peak} · ` : ""}
-                            Updated {formatDate(entry.updated)}
-                        </p>
+                        {entry.peak && <p>Peak: {entry.peak}</p>}
                         {entry.note && <p>{entry.note}</p>}
 
                         {shot && (
