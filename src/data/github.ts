@@ -24,8 +24,8 @@ export interface GitHubProject {
 }
 
 export async function getGitHubProjects(): Promise<GitHubProject[]> {
-    const projects = await Promise.all(
-        repositories.map(async ({ owner, name }) => {
+    return await Promise.all(
+        repositories.map(async ({owner, name}) => {
             const response = await fetch(
                 `https://api.github.com/repos/${owner}/${name}`
             )
@@ -57,6 +57,4 @@ export async function getGitHubProjects(): Promise<GitHubProject[]> {
             } satisfies GitHubProject
         })
     )
-
-    return projects
 }
