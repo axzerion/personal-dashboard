@@ -177,7 +177,7 @@ card > *, .project-card > *, .game-card > *, .tile > * { position: relative; }
     pointer-events: none;
     opacity: 0;
     background: radial-gradient(
-            340px circle at var(--glow-x, 75%) var(--glow-y, 15%),
+            340px circle at 75% var(--glow-y, 15%),
             var(--accent-glow),
             transparent 62%
     );

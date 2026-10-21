@@ -37,3 +37,11 @@
 @media (hover: hover) {
     .game-ranks .rank-shot:hover { border-top-color: var(--accent-border); }
 }
+
+.game-ranks .rank-shot { aspect-ratio: auto; background: #000; }
+
+.game-ranks .rank-shot img {
+    height: auto;
+    max-height: 560px;
+    object-fit: contain;
+}
