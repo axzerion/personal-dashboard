@@ -183,6 +183,8 @@ button.shelf-item,
 .media-title { margin-top: 10px; font-size: var(--fs-small); line-height: 1.35; overflow-wrap: anywhere; }
 .media-note { margin-top: 4px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
 
+
+/* Controls the image card size and look when clicking a thumbnail */
 .lightbox { width: min(960px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); overflow: auto; }
 .lightbox::backdrop { background: rgba(3, 4, 6, 0.82); }
 .lightbox-inner { display: flex; flex-direction: column; gap: 14px; padding: 14px; }
