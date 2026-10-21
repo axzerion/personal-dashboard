@@ -7,6 +7,10 @@ const repositories = [
         owner: "axzerion",
         name: "HDRAutoSwitcher"
     },
+    {
+        owner: "axzerion",
+        name: "SteamProject"
+    },
 ]
 
 export interface GitHubProject {
