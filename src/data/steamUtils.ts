@@ -9,5 +9,5 @@ export function formatPlaytime(minutes: number): string {
     const value =
         hours < 10 ? hours.toFixed(1).replace(/\.0$/, "") : String(Math.round(hours))
 
-    return `${value} ${value === "1" ? "hr" : "hrs"}`
+    return `${value} ${value === "1" ? "hour" : "hours"}`
 }
